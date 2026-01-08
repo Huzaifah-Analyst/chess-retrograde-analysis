@@ -1,0 +1,121 @@
+{
+  "checkmates": [],
+  "dead_ends": [],
+  "propagation_depth": null,
+  "depth_statistics": {
+    "1": {
+      "positions": 34,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "available_moves": 132,
+      "initial_moves": 132
+    },
+    "2": {
+      "positions": 132,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "available_moves": 2392,
+      "initial_moves": 2392
+    },
+    "3": {
+      "positions": 1284,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "available_moves": 6632,
+      "initial_moves": 6632
+    },
+    "4": {
+      "positions": 3336,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "available_moves": 61362,
+      "initial_moves": 61362
+    },
+    "5": {
+      "positions": 14678,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "available_moves": 81934,
+      "initial_moves": 81934
+    },
+    "6": {
+      "positions": 23034,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "available_moves": 448700,
+      "initial_moves": 448700
+    },
+    "7": {
+      "positions": 61176,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "available_moves": 327032,
+      "initial_moves": 327032
+    },
+    "8": {
+      "positions": 69780,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "available_moves": 1366000,
+      "initial_moves": 1366000
+    }
+  },
+  "dominic_ratio": {
+    "1": {
+      "available_moves": 132,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": Infinity
+    },
+    "2": {
+      "available_moves": 2392,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": Infinity
+    },
+    "3": {
+      "available_moves": 6632,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": Infinity
+    },
+    "4": {
+      "available_moves": 61362,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": Infinity
+    },
+    "5": {
+      "available_moves": 81934,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": Infinity
+    },
+    "6": {
+      "available_moves": 448700,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": Infinity
+    },
+    "7": {
+      "available_moves": 327032,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": Infinity
+    },
+    "8": {
+      "available_moves": 1366000,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": Infinity
+    }
+  }
+}

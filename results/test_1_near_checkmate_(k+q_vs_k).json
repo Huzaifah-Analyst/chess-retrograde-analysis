@@ -1,0 +1,135 @@
+{
+  "checkmates": [
+    "7k/5KQ1/8/8/8/8/8/8 b - - 1 1",
+    "7k/6Q1/6K1/8/8/8/8/8 b - - 1 1",
+    "8/6Qk/5K2/8/8/8/8/8 b - - 3 2",
+    "6k1/6Q1/5K2/8/8/8/8/8 b - - 3 2",
+    "7Q/8/5K1k/8/8/8/8/8 b - - 5 3",
+    "8/8/5KQk/8/8/8/8/8 b - - 5 3",
+    "8/8/5K1k/8/8/7Q/8/8 b - - 5 3",
+    "8/8/5K1k/8/8/8/7Q/8 b - - 5 3",
+    "8/8/5K1k/8/8/8/8/7Q b - - 5 3",
+    "7k/6Q1/5K2/8/8/8/8/8 b - - 5 3",
+    "6k1/6Q1/5K2/8/8/8/8/8 b - - 5 3",
+    "8/8/5K1k/8/7Q/8/8/8 b - - 5 3",
+    "8/6Qk/5K2/8/8/8/8/8 b - - 5 3",
+    "5k1Q/8/5K2/8/8/8/8/8 b - - 5 3",
+    "5k2/5Q2/5K2/8/8/8/8/8 b - - 5 3",
+    "3Q1k2/8/5K2/8/8/8/8/8 b - - 5 3",
+    "2Q2k2/8/5K2/8/8/8/8/8 b - - 5 3",
+    "1Q3k2/8/5K2/8/8/8/8/8 b - - 5 3",
+    "Q4k2/8/5K2/8/8/8/8/8 b - - 5 3",
+    "5Q1k/8/6K1/8/8/8/8/8 b - - 5 3",
+    "4Q2k/8/6K1/8/8/8/8/8 b - - 5 3",
+    "3Q3k/8/6K1/8/8/8/8/8 b - - 5 3",
+    "7k/7Q/6K1/8/8/8/8/8 b - - 5 3",
+    "7k/6Q1/6K1/8/8/8/8/8 b - - 5 3",
+    "2Q4k/8/6K1/8/8/8/8/8 b - - 5 3",
+    "3Q1k2/8/6K1/8/8/8/8/8 b - - 5 3",
+    "5k2/5Q2/6K1/8/8/8/8/8 b - - 5 3",
+    "5k2/5Q2/4K3/8/8/8/8/8 b - - 5 3",
+    "1Q5k/8/6K1/8/8/8/8/8 b - - 5 3",
+    "Q6k/8/6K1/8/8/8/8/8 b - - 5 3",
+    "6Qk/5K2/8/8/8/8/8/8 b - - 5 3",
+    "7k/5KQ1/8/8/8/8/8/8 b - - 5 3",
+    "7k/5K2/7Q/8/8/8/8/8 b - - 5 3",
+    "7k/5K2/8/7Q/8/8/8/8 b - - 5 3",
+    "7k/5K2/8/8/7Q/8/8/8 b - - 5 3",
+    "7k/5K2/8/8/8/7Q/8/8 b - - 5 3",
+    "8/5K2/6Qk/8/8/8/8/8 b - - 5 3",
+    "8/5K2/7k/8/7Q/8/8/8 b - - 5 3",
+    "8/8/6Qk/5K2/8/8/8/8 b - - 5 3",
+    "7k/5K2/8/8/8/8/7Q/8 b - - 5 3",
+    "7k/5K2/8/8/8/8/8/7Q b - - 5 3"
+  ],
+  "dead_ends": [],
+  "propagation_depth": null,
+  "depth_statistics": {
+    "1": {
+      "positions": 48,
+      "checkmates": 4,
+      "dead_ends": 0,
+      "available_moves": 38,
+      "initial_moves": 38
+    },
+    "2": {
+      "positions": 38,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "available_moves": 722,
+      "initial_moves": 722
+    },
+    "3": {
+      "positions": 380,
+      "checkmates": 4,
+      "dead_ends": 0,
+      "available_moves": 780,
+      "initial_moves": 780
+    },
+    "4": {
+      "positions": 688,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "available_moves": 18858,
+      "initial_moves": 18858
+    },
+    "5": {
+      "positions": 4672,
+      "checkmates": 74,
+      "dead_ends": 0,
+      "available_moves": 12010,
+      "initial_moves": 12010
+    },
+    "6": {
+      "positions": 6190,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "available_moves": 170176,
+      "initial_moves": 170176
+    }
+  },
+  "dominic_ratio": {
+    "1": {
+      "available_moves": 38,
+      "checkmates": 4,
+      "dead_ends": 0,
+      "barrier_size": 4,
+      "ratio": 9.5
+    },
+    "2": {
+      "available_moves": 722,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": Infinity
+    },
+    "3": {
+      "available_moves": 780,
+      "checkmates": 4,
+      "dead_ends": 0,
+      "barrier_size": 4,
+      "ratio": 195.0
+    },
+    "4": {
+      "available_moves": 18858,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": Infinity
+    },
+    "5": {
+      "available_moves": 12010,
+      "checkmates": 74,
+      "dead_ends": 0,
+      "barrier_size": 74,
+      "ratio": 162.2972972972973
+    },
+    "6": {
+      "available_moves": 170176,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": Infinity
+    }
+  }
+}
