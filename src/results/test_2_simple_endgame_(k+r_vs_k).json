@@ -1,0 +1,24 @@
+{
+  "checkmates": [],
+  "dead_ends": [],
+  "propagation_depth": null,
+  "depth_statistics": {
+    "1": {
+      "positions": 34,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "available_moves": 132,
+      "initial_moves": 132,
+      "safe_moves": 132
+    }
+  },
+  "dominic_ratio": {
+    "1": {
+      "available_moves": 132,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": "Infinity"
+    }
+  }
+}

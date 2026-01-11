@@ -1,10 +1,13 @@
 """
 BFS Chess Move Tree Generator
 Generates all possible moves breadth-first to a specified depth
+With persistent storage and resume capability
 """
 
 import chess
+import time
 from collections import deque
+from persistent_storage import ChessTreeStorage
 
 
 class ChessBFS:
@@ -20,9 +23,148 @@ class ChessBFS:
         self.starting_fen = starting_fen
         self.positions_analyzed = 0
         
-    def generate_move_tree(self, max_depth):
+    def generate_move_tree(self, max_depth, resume=True, save_interval=1, db_path='chess_tree.db'):
         """
-        Generate all possible moves up to max_depth
+        Generate move tree with persistent storage
+        
+        Args:
+            max_depth: How deep to analyze
+            resume: Whether to resume from saved progress
+            save_interval: Save after every N depths
+            db_path: Path to SQLite database
+            
+        Returns:
+            Dictionary of positions with their data
+        """
+        print(f"Generating move tree to depth {max_depth}...")
+        
+        start_time = time.time()
+        storage = ChessTreeStorage(db_path)
+        
+        # Try to resume
+        start_depth = 1
+        tree = {}
+        
+        if resume:
+            saved_tree, progress = storage.load_tree()
+            if saved_tree and progress:
+                # Verify same starting position
+                if progress['starting_fen'] == self.starting_fen:
+                    print(f"Resuming from depth {progress['current_depth']}")
+                    start_depth = progress['current_depth'] + 1
+                    self.positions_analyzed = progress['positions_analyzed']
+                    tree = saved_tree
+                else:
+                    print("Different starting position, starting fresh...")
+                    storage.clear()
+        
+        # If we're at max depth already, nothing to do
+        if start_depth > max_depth:
+            print(f"Already at depth {start_depth - 1}, nothing to do")
+            storage.close()
+            return tree
+        
+        # Build tree using BFS - process ALL positions level by level
+        # Start with initial position  
+        start_board = chess.Board(self.starting_fen)
+        
+        # For first depth, queue is just starting position
+        if start_depth == 1:
+            current_level = [(start_board, [])]
+        else:
+            # Resume: get all positions at the last completed depth
+            current_level = []
+            for fen, data in tree.items():
+                if data['depth'] == start_depth - 1:
+                    if not data['is_checkmate'] and not data['is_stalemate']:
+                        current_level.append((data['board'], data['moves']))
+            print(f"Resuming with {len(current_level)} positions at depth {start_depth - 1}")
+        
+        # Process each depth level
+        for current_depth in range(start_depth, max_depth + 1):
+            depth_start_time = time.time()
+            positions_at_start = len(tree)
+            positions_analyzed_start = self.positions_analyzed
+            
+            print(f"\nGenerating depth {current_depth}...")
+            print(f"  Processing {len(current_level)} parent positions...")
+            
+            next_level = []
+            
+            # Process all positions at current level
+            for board, move_history in current_level:
+                for move in board.legal_moves:
+                    # Skip bishop/rook promotions (Dominic's optimization)
+                    if move.promotion and move.promotion in [chess.BISHOP, chess.ROOK]:
+                        continue
+                    
+                    self.positions_analyzed += 1
+                    
+                    # Make the move
+                    new_board = board.copy()
+                    new_board.push(move)
+                    new_history = move_history + [move]
+                    
+                    # Get unique position key
+                    position_key = new_board.fen()
+                    
+                    # Only add if not seen before
+                    if position_key not in tree:
+                        tree[position_key] = {
+                            'depth': current_depth,
+                            'moves': new_history,
+                            'is_checkmate': new_board.is_checkmate(),
+                            'is_stalemate': new_board.is_stalemate(),
+                            'board': new_board.copy()
+                        }
+                        
+                        # Add to next level if game not over
+                        if not new_board.is_game_over():
+                            next_level.append((new_board, new_history))
+                    
+                    # Progress indicator
+                    if self.positions_analyzed % 100000 == 0:
+                        elapsed = time.time() - depth_start_time
+                        print(f"    {self.positions_analyzed:,} moves analyzed, {len(tree):,} unique positions ({elapsed:.1f}s)...")
+            
+            # Move to next level
+            current_level = next_level
+            
+            # Timing info
+            depth_time = time.time() - depth_start_time
+            total_time = time.time() - start_time
+            new_positions = len(tree) - positions_at_start
+            moves_analyzed = self.positions_analyzed - positions_analyzed_start
+            
+            print(f"[OK] Depth {current_depth}: +{new_positions:,} positions ({moves_analyzed:,} moves) in {depth_time:.1f}s")
+            print(f"     Total: {len(tree):,} positions, {total_time:.1f}s elapsed")
+            
+            # Save after each depth
+            if current_depth % save_interval == 0:
+                storage.save_tree(tree, self.starting_fen, current_depth, max_depth, self.positions_analyzed)
+            
+            # Stop if no more positions to explore
+            if not current_level:
+                print(f"\nNo more positions to explore at depth {current_depth}")
+                break
+        
+        # Final save
+        storage.save_tree(tree, self.starting_fen, max_depth, max_depth, self.positions_analyzed)
+        storage.close()
+        
+        total_time = time.time() - start_time
+        print(f"\n{'='*60}")
+        print(f"COMPLETE!")
+        print(f"  Total moves analyzed: {self.positions_analyzed:,}")
+        print(f"  Unique positions stored: {len(tree):,}")
+        print(f"  Total time: {total_time:.1f}s")
+        print(f"{'='*60}")
+        
+        return tree
+    
+    def generate_move_tree_simple(self, max_depth):
+        """
+        Simple tree generation without persistence (for testing)
         
         Args:
             max_depth: How many moves ahead to analyze
@@ -31,6 +173,8 @@ class ChessBFS:
             Dictionary of positions with their data
         """
         print(f"Generating move tree to depth {max_depth}...")
+        
+        start_time = time.time()
         
         # Start with initial position
         start_board = chess.Board(self.starting_fen)
@@ -51,6 +195,10 @@ class ChessBFS:
             
             # Analyze all legal moves from this position
             for move in board.legal_moves:
+                # Skip bishop/rook promotions (Dominic's optimization)
+                if move.promotion and move.promotion in [chess.BISHOP, chess.ROOK]:
+                    continue
+                    
                 self.positions_analyzed += 1
                 
                 # Make the move on a copy of the board
@@ -76,11 +224,17 @@ class ChessBFS:
                         queue.append((new_board, depth + 1, new_history))
                 
                 # Progress indicator
-                if self.positions_analyzed % 10000 == 0:
-                    print(f"  Analyzed {self.positions_analyzed:,} positions...")
+                if self.positions_analyzed % 100000 == 0:
+                    elapsed = time.time() - start_time
+                    print(f"  {self.positions_analyzed:,} moves analyzed, {len(tree):,} positions ({elapsed:.1f}s)...")
         
-        print(f"Complete! Total positions: {self.positions_analyzed:,}")
-        print(f"Unique positions stored: {len(tree):,}")
+        total_time = time.time() - start_time
+        print(f"\n{'='*60}")
+        print(f"COMPLETE!")
+        print(f"  Total moves analyzed: {self.positions_analyzed:,}")
+        print(f"  Unique positions stored: {len(tree):,}")
+        print(f"  Total time: {total_time:.1f}s")
+        print(f"{'='*60}")
         
         return tree
     
@@ -106,13 +260,17 @@ class ChessBFS:
 
 # Test the BFS
 if __name__ == "__main__":
-    # Simple endgame: King + Queen vs King
-    fen = "4k3/8/8/8/8/8/4Q3/4K3 w - - 0 1"
+    # Test with near-checkmate position
+    fen = "7k/6Q1/5K2/8/8/8/8/8 w - - 0 1"
     
-    print("Testing BFS on K+Q vs K endgame\n")
+    print("="*60)
+    print("Testing BFS on Near-Checkmate Position")
+    print("="*60)
+    print(f"FEN: {fen}")
+    print()
     
     bfs = ChessBFS(fen)
-    tree = bfs.generate_move_tree(max_depth=10)
+    tree = bfs.generate_move_tree_simple(max_depth=6)
     
     stats = bfs.get_statistics(tree)
     

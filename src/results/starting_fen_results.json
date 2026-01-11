@@ -1,0 +1,82 @@
+{
+  "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+  "max_depth": 5,
+  "total_positions": 1525668,
+  "checkmates": 109,
+  "dead_ends": 0,
+  "propagation_depth": null,
+  "dominic_ratio": {
+    "1": {
+      "available_moves": 400,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": "Infinity"
+    },
+    "2": {
+      "available_moves": 8902,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": "Infinity"
+    },
+    "3": {
+      "available_moves": 143448,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": "Infinity"
+    },
+    "4": {
+      "available_moves": 2349804,
+      "checkmates": 4,
+      "dead_ends": 0,
+      "barrier_size": 4,
+      "ratio": 587451.0
+    },
+    "5": {
+      "available_moves": 34996204,
+      "checkmates": 105,
+      "dead_ends": 0,
+      "barrier_size": 105,
+      "ratio": 333297.18095238094
+    }
+  },
+  "refined_ratio": {
+    "1": {
+      "safe_moves": 400,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": "Infinity"
+    },
+    "2": {
+      "safe_moves": 8902,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": "Infinity"
+    },
+    "3": {
+      "safe_moves": 143444,
+      "checkmates": 0,
+      "dead_ends": 0,
+      "barrier_size": 0,
+      "ratio": "Infinity"
+    },
+    "4": {
+      "safe_moves": 2349699,
+      "checkmates": 4,
+      "dead_ends": 0,
+      "barrier_size": 4,
+      "ratio": 587424.75
+    },
+    "5": {
+      "safe_moves": 34996204,
+      "checkmates": 105,
+      "dead_ends": 0,
+      "barrier_size": 105,
+      "ratio": 333297.18095238094
+    }
+  }
+}

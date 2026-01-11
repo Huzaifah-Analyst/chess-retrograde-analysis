@@ -20,14 +20,16 @@ class RetrogradeAnalyzer:
     5. Propagate backwards from dead ends
     """
     
-    def __init__(self, move_tree):
+    def __init__(self, move_tree, starting_fen=chess.STARTING_FEN):
         """
         Initialize analyzer with BFS move tree
         
         Args:
             move_tree: Dictionary from ChessBFS.generate_move_tree()
+            starting_fen: FEN string of the root position (needed for move replay)
         """
         self.tree = move_tree
+        self.starting_fen = starting_fen
         self.dead_ends = set()
         self.move_counts = {}
         self.initial_move_counts = {}
@@ -36,8 +38,10 @@ class RetrogradeAnalyzer:
             'checkmates': 0,
             'dead_ends': 0,
             'available_moves': 0,
-            'initial_moves': 0
+            'initial_moves': 0,
+            'safe_moves': 0
         })
+        self.parent_map = {}
         
     def analyze(self):
         """
@@ -53,26 +57,35 @@ class RetrogradeAnalyzer:
         # Step 1: Find checkmates
         print("\nStep 1: Finding checkmate positions...")
         checkmates = self.find_checkmates()
-        print(f"✓ Found {len(checkmates)} checkmate positions")
+        print(f"[OK] Found {len(checkmates)} checkmate positions")
         
         # Step 2: Initialize move counts
         print("\nStep 2: Initializing move counts...")
         self.initialize_move_counts()
-        print(f"✓ Initialized {len(self.move_counts)} positions")
+        print(f"[OK] Initialized {len(self.move_counts)} positions")
         
         # Step 3: Collect initial statistics
         print("\nStep 3: Collecting depth statistics...")
         self.collect_depth_statistics()
         
+        # Step 3.5: Build parent map for optimization
+        print("\nStep 3.5: Building parent map (reverse lookup)...")
+        self.build_parent_map()
+        
         # Step 4: Run decrement algorithm
         print("\nStep 4: Running decrement propagation...")
         self.decrement_from_checkmates(checkmates)
-        print(f"✓ Found {len(self.dead_ends)} dead-end positions")
+        print(f"[OK] Found {len(self.dead_ends)} dead-end positions")
         
-        # Step 5: Calculate final statistics
-        print("\nStep 5: Calculating final statistics...")
+        # Step 5: Collect final statistics (AFTER decrement)
+        print("\nStep 5: Collecting final statistics...")
+        self.collect_final_statistics()
+        
+        # Step 6: Calculate ratios
+        print("\nStep 6: Calculating ratios...")
         propagation_depth = self.calculate_propagation_depth()
         ratio_data = self.calculate_dominic_ratio()
+        refined_ratio = self.calculate_refined_ratio()
         
         print("\n" + "="*60)
         print("ANALYSIS COMPLETE")
@@ -85,7 +98,8 @@ class RetrogradeAnalyzer:
             'initial_move_counts': self.initial_move_counts,
             'propagation_depth': propagation_depth,
             'depth_statistics': dict(self.depth_stats),
-            'dominic_ratio': ratio_data
+            'dominic_ratio': ratio_data,
+            'refined_ratio': refined_ratio
         }
     
     def find_checkmates(self):
@@ -133,7 +147,7 @@ class RetrogradeAnalyzer:
         1. Start with all checkmate positions (bad for opponent)
         2. Find positions that lead to these checkmates (parents)
         3. Decrement parent move counts (one less good option)
-        4. If parent reaches 0 good moves → dead end
+        4. If parent reaches 0 good moves -> dead end
         5. Treat dead ends like checkmates, propagate backwards
         
         This creates a "barrier" of bad positions spreading backwards through tree.
@@ -172,31 +186,65 @@ class RetrogradeAnalyzer:
             depth = self.tree[fen]['depth']
             self.depth_stats[depth]['dead_ends'] += 1
         
-        print(f"\n✓ Completed in {iterations} iterations")
+        print(f"\n[OK] Completed in {iterations} iterations")
     
+    def build_parent_map(self):
+        """
+        Build a reverse lookup map (child -> parents) for O(1) access
+        
+        ULTRA-OPTIMIZED: Uses move history tuples to find parents.
+        1. Map tuple(moves) -> fen for all positions
+        2. For each child, look up parent using tuple(child_moves[:-1])
+        3. No chess board operations required! Extremely fast.
+        """
+        self.parent_map = {}
+        
+        # Step 1: Build moves -> fen map
+        print("  Building moves -> fen map...")
+        moves_to_fen = {}
+        for fen, data in self.tree.items():
+            # Convert list of moves to tuple for hashing
+            # We use the string representation of moves to be safe and consistent
+            move_tuple = tuple(m.uci() for m in data['moves'])
+            moves_to_fen[move_tuple] = fen
+            
+        print(f"  Mapped {len(moves_to_fen)} move sequences to FENs")
+        
+        # Step 2: Build parent map
+        count = 0
+        total = len(self.tree)
+        print(f"  Mapping {total} parent-child relationships...")
+        
+        for child_fen, data in self.tree.items():
+            # Skip root (no parent)
+            if data['depth'] == 0:
+                continue
+                
+            # Get parent moves tuple
+            child_moves = [m.uci() for m in data['moves']]
+            if child_moves:
+                parent_moves = tuple(child_moves[:-1])
+                
+                # Look up parent FEN
+                if parent_moves in moves_to_fen:
+                    parent_fen = moves_to_fen[parent_moves]
+                    
+                    if child_fen not in self.parent_map:
+                        self.parent_map[child_fen] = []
+                    self.parent_map[child_fen].append(parent_fen)
+            
+            count += 1
+            if count % 500000 == 0:
+                print(f"    Mapped {count:,} positions...")
+                
+        print(f"  [OK] Parent map built with {len(self.parent_map)} child positions")
+
     def find_parent_positions(self, position_fen):
         """
         Find positions that can reach target position in one move
-        
-        Works backwards: given a position, who can get here?
+        Uses pre-computed parent_map for O(1) lookup
         """
-        parents = []
-        target_depth = self.tree[position_fen]['depth']
-        
-        # Only look at positions one level up
-        for fen, data in self.tree.items():
-            if data['depth'] == target_depth - 1:
-                board = data['board']
-                
-                # Check if any move leads to target
-                for move in board.legal_moves:
-                    test_board = board.copy()
-                    test_board.push(move)
-                    if test_board.fen() == position_fen:
-                        parents.append(fen)
-                        break
-        
-        return parents
+        return self.parent_map.get(position_fen, [])
     
     def calculate_propagation_depth(self):
         """
@@ -214,13 +262,20 @@ class RetrogradeAnalyzer:
         
         return min_depth
     
+    def collect_final_statistics(self):
+        """Collect stats after decrement - gives us safe moves only"""
+        for fen, data in self.tree.items():
+            depth = data['depth']
+            # Use FINAL move count (after decrement)
+            self.depth_stats[depth]['safe_moves'] += self.move_counts[fen]
+    
     def calculate_dominic_ratio(self):
         """
         Calculate Dominic's barrier ratio at each depth
         
         Ratio = available_moves / (checkmates + dead_ends)
         
-        If ratio → 1 or below: barrier is closing, position trapped
+        If ratio -> 1 or below: barrier is closing, position trapped
         If ratio stays > 1: game continues
         """
         ratio_by_depth = {}
@@ -247,6 +302,32 @@ class RetrogradeAnalyzer:
         
         return ratio_by_depth
     
+    def calculate_refined_ratio(self):
+        """
+        Refined ratio: Safe moves / barrier
+        
+        Uses move counts AFTER decrement (safe moves only)
+        """
+        ratio_by_depth = {}
+        
+        for depth, stats in sorted(self.depth_stats.items()):
+            checkmates = stats.get('checkmates', 0)
+            dead_ends = stats.get('dead_ends', 0)
+            safe_moves = stats.get('safe_moves', 0)
+            
+            barrier_size = checkmates + dead_ends
+            ratio = safe_moves / barrier_size if barrier_size > 0 else float('inf')
+            
+            ratio_by_depth[depth] = {
+                'safe_moves': safe_moves,
+                'checkmates': checkmates,
+                'dead_ends': dead_ends,
+                'barrier_size': barrier_size,
+                'ratio': ratio if ratio != float('inf') else "Infinity"
+            }
+        
+        return ratio_by_depth
+    
     def export_results(self, filename='results/analysis_results.json'):
         """Export results to JSON for further analysis"""
         results = self.analyze()
@@ -263,7 +344,7 @@ class RetrogradeAnalyzer:
         with open(filename, 'w') as f:
             json.dump(export_data, f, indent=2)
         
-        print(f"\n✓ Results exported to {filename}")
+        print(f"\n[OK] Results exported to {filename}")
         return export_data
 
 
@@ -284,7 +365,11 @@ def print_results_summary(results):
     print("-"*60)
     
     for depth, data in sorted(results['dominic_ratio'].items()):
-        ratio_str = f"{data['ratio']:.2f}" if data['ratio'] != float('inf') else "∞"
+        ratio = data['ratio']
+        if isinstance(ratio, str) or ratio == float('inf'):
+            ratio_str = "inf"
+        else:
+            ratio_str = f"{ratio:.2f}"
         print(f"{depth:<8} {data['available_moves']:<15} {data['checkmates']:<12} "
               f"{data['dead_ends']:<12} {ratio_str:<10}")
     
@@ -292,10 +377,10 @@ def print_results_summary(results):
     print("INTERPRETATION")
     print("="*60)
     print("Ratio = Available Moves / (Checkmates + Dead Ends)")
-    print("  • Ratio > 1: Game can continue (more options than barriers)")
-    print("  • Ratio ≤ 1: Position trapped (barriers equal/exceed options)")
-    print("  • Trending down: Barrier is closing")
-    print("  • Trending up: Barrier effect weakening")
+    print("  * Ratio > 1: Game can continue (more options than barriers)")
+    print("  * Ratio <= 1: Position trapped (barriers equal/exceed options)")
+    print("  * Trending down: Barrier is closing")
+    print("  * Trending up: Barrier effect weakening")
     print("="*60)
 
 
@@ -332,7 +417,7 @@ if __name__ == "__main__":
         tree = bfs.generate_move_tree(max_depth=pos['depth'])
         
         bfs_stats = bfs.get_statistics(tree)
-        print(f"✓ Tree generated: {bfs_stats['total_positions']} positions")
+        print(f"[OK] Tree generated: {bfs_stats['total_positions']} positions")
         
         # Run retrograde analysis
         analyzer = RetrogradeAnalyzer(tree)

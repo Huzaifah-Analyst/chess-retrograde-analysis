@@ -1,0 +1,27 @@
+{
+  "checkmates": [
+    "7k/5KQ1/8/8/8/8/8/8 b - - 1 1",
+    "7k/6Q1/6K1/8/8/8/8/8 b - - 1 1"
+  ],
+  "dead_ends": [],
+  "propagation_depth": null,
+  "depth_statistics": {
+    "1": {
+      "positions": 48,
+      "checkmates": 4,
+      "dead_ends": 0,
+      "available_moves": 38,
+      "initial_moves": 38,
+      "safe_moves": 38
+    }
+  },
+  "dominic_ratio": {
+    "1": {
+      "available_moves": 38,
+      "checkmates": 4,
+      "dead_ends": 0,
+      "barrier_size": 4,
+      "ratio": 9.5
+    }
+  }
+}
