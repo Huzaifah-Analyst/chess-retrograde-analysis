@@ -1,0 +1,14 @@
+Starting Tests
+
+DEBUG: test_attack_lines_improved
+King No Escapes: True
+Attack Improved: True
+Attacker Range: True
+Threat Exists: True
+test_king_has_no_escapes (Fool's Mate): True
+
+DEBUG: test_non_checkmate_move
+King No Escapes: True
+Attack Improved: False
+Attacker Range: False
+Threat Exists: False

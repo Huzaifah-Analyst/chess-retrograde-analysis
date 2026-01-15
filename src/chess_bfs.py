@@ -8,6 +8,7 @@ import chess
 import time
 from collections import deque
 from persistent_storage import ChessTreeStorage
+from checkmate_detector import CheckmateDetector
 
 
 class ChessBFS:
@@ -23,7 +24,7 @@ class ChessBFS:
         self.starting_fen = starting_fen
         self.positions_analyzed = 0
         
-    def generate_move_tree(self, max_depth, resume=True, save_interval=1, db_path='chess_tree.db'):
+    def generate_move_tree(self, max_depth, resume=True, save_interval=1, db_path='chess_tree.db', use_conditions=False):
         """
         Generate move tree with persistent storage
         
@@ -32,11 +33,16 @@ class ChessBFS:
             resume: Whether to resume from saved progress
             save_interval: Save after every N depths
             db_path: Path to SQLite database
+            use_conditions: Whether to use Dominic's 4 conditions for filtering
             
         Returns:
             Dictionary of positions with their data
         """
         print(f"Generating move tree to depth {max_depth}...")
+        
+        if use_conditions:
+            print("  [!] Using Dominic's 4 Conditions for filtering")
+            detector = CheckmateDetector()
         
         start_time = time.time()
         storage = ChessTreeStorage(db_path)
@@ -97,6 +103,11 @@ class ChessBFS:
                     # Skip bishop/rook promotions (Dominic's optimization)
                     if move.promotion and move.promotion in [chess.BISHOP, chess.ROOK]:
                         continue
+                    
+                    # Dominic's 4 Conditions Filtering
+                    if use_conditions:
+                        if not detector.matches_conditions(board, move):
+                            continue
                     
                     self.positions_analyzed += 1
                     

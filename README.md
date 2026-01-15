@@ -29,48 +29,38 @@ Implementation of retrograde checkmate elimination algorithm for chess position 
 
 ## Usage
 
-### 🖥️ GUI Application
+### 🖥️ GUI Application (Recommended)
 
-The easiest way to use the tool is via the new Desktop GUI (built with Tkinter, no extra install needed):
+The entire project is consolidated into a single GUI application. This is the main entry point for all features.
 
 ```bash
-cd src
-python gui_app.py
+python src/gui_app.py
 ```
 
-Features:
-- **Visual Configuration**: Select depth and FEN easily.
-- **Resume Control**: Choose to resume analysis or start fresh (clear data).
-- **Real-time Progress**: Watch the analysis steps.
-- **Results Table**: View formatted results instantly.
+**Features:**
+- **Analysis Tab**: 
+    - Configure and run new analyses (Starting FEN or Custom FEN).
+    - Resume from saved progress.
+    - View real-time logs and progress.
+- **Results Tab**: 
+    - View detailed results table (Safe Moves, Checkmates, Ratio).
+    - Export results to JSON.
+- **Tools Tab**:
+    - **Run System Tests**: Verify the integrity of the algorithm and database.
+    - **Check Database Progress**: View stats of the current database.
+    - **Analyze from Database**: Run retrograde analysis on existing tree data without re-running BFS.
 
 ### Quick Start (Interactive Mode)
 
 If you prefer the terminal:
 ```bash
-cd src
-python interactive_analysis.py
-```
-
-This will:
-1. Show your system specifications
-2. Let you choose position and depth
-3. **Estimate time required**
-4. Ask for confirmation
-5. Run the analysis with progress tracking
-
-### Advanced Usage (Direct Scripts)
-
-For automated/scripted runs:
-```bash
-python run_starting_fen.py  # Uses preset depth
-python analyze_from_db.py   # Analyze existing data
+python src/interactive_analysis.py
 ```
 
 ### View Results
 
-- Results saved in `results/starting_fen_results.json`
-- Tree saved in `chess_tree.db`
+- Results saved in `results/` directory.
+- Tree saved in `chess_tree.db`.
 
 ## Refined Ratio
 

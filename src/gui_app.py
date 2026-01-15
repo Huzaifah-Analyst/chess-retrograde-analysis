@@ -20,10 +20,12 @@ from chess_bfs import ChessBFS
 from retrograde_analysis import RetrogradeAnalyzer
 from interactive_analysis import estimate_time, format_time
 import chess
+import sqlite3
+from persistent_storage import ChessTreeStorage
 
 class AnalysisWorker(threading.Thread):
     """Worker thread for running analysis without freezing UI"""
-    def __init__(self, starting_fen, target_depth, resume, msg_queue, progress_queue, result_queue):
+    def __init__(self, starting_fen, target_depth, resume, msg_queue, progress_queue, result_queue, use_conditions=False):
         super().__init__()
         self.starting_fen = starting_fen
         self.target_depth = target_depth
@@ -31,6 +33,7 @@ class AnalysisWorker(threading.Thread):
         self.msg_queue = msg_queue
         self.progress_queue = progress_queue
         self.result_queue = result_queue
+        self.use_conditions = use_conditions
         self.is_running = True
         self.daemon = True  # Thread dies if main app closes
 
@@ -62,7 +65,7 @@ class AnalysisWorker(threading.Thread):
             # so we'll simulate progress updates or just wait.
             self.progress_queue.put(10) # Started
             
-            tree = bfs.generate_move_tree(max_depth=self.target_depth, resume=self.resume, save_interval=1)
+            tree = bfs.generate_move_tree(max_depth=self.target_depth, resume=self.resume, save_interval=1, use_conditions=self.use_conditions)
             
             if not self.is_running:
                 return
@@ -99,6 +102,235 @@ class AnalysisWorker(threading.Thread):
     def stop(self):
         self.is_running = False
 
+class ToolsWorker(threading.Thread):
+    """Worker for running auxiliary tools"""
+    def __init__(self, task_type, msg_queue, **kwargs):
+        super().__init__()
+        self.task_type = task_type
+        self.msg_queue = msg_queue
+        self.kwargs = kwargs
+        self.daemon = True
+
+    def log(self, msg):
+        self.msg_queue.put(msg)
+
+    def run(self):
+        try:
+            if self.task_type == "system_test":
+                self.run_system_test()
+            elif self.task_type == "check_progress":
+                self.check_progress()
+            elif self.task_type == "analyze_db":
+                self.analyze_from_db()
+        except Exception as e:
+            import traceback
+            self.log(f"\nERROR: {str(e)}")
+            self.log(traceback.format_exc())
+
+    def check_progress(self):
+        try:
+            conn = sqlite3.connect('chess_tree.db')
+            cursor = conn.cursor()
+            
+            # Check progress table
+            cursor.execute('SELECT * FROM progress ORDER BY id DESC LIMIT 1')
+            progress = cursor.fetchone()
+            
+            if progress:
+                self.log(f"Found saved progress:")
+                self.log(f"  Starting FEN: {progress[1]}")
+                self.log(f"  Current Depth: {progress[2]}")
+                self.log(f"  Max Depth: {progress[3]}")
+                self.log(f"  Positions Analyzed: {progress[4]:,}")
+                self.log(f"  Timestamp: {progress[5]}")
+            else:
+                self.log("No progress found in database.")
+                
+            # Check positions count
+            cursor.execute('SELECT count(*) FROM positions')
+            count = cursor.fetchone()[0]
+            self.log(f"Total positions stored: {count:,}")
+            
+            conn.close()
+        except Exception as e:
+            self.log(f"Error checking database: {e}")
+
+    def analyze_from_db(self):
+        db_path = 'chess_tree.db'
+        self.log(f"Loading tree from {db_path}...")
+        start_time = time.time()
+        
+        storage = ChessTreeStorage(db_path)
+        tree, progress = storage.load_tree()
+        storage.close()
+        
+        if not tree:
+            self.log("No tree found in database!")
+            return
+
+        load_time = time.time() - start_time
+        self.log(f"Loaded {len(tree)} positions in {load_time:.1f}s")
+        
+        # Get starting FEN from progress info if available, else default
+        starting_fen = progress.get('starting_fen', chess.STARTING_FEN)
+        self.log(f"Starting FEN: {starting_fen}")
+        
+        # Run analysis
+        self.log("\nStarting Retrograde Analysis...")
+        analyzer = RetrogradeAnalyzer(tree, starting_fen=starting_fen)
+        results = analyzer.analyze()
+        
+        # Print results summary
+        self.log(f"Checkmates: {len(results['checkmates'])}")
+        self.log(f"Dead ends: {len(results['dead_ends'])}")
+        self.log(f"Dominic Ratio: {results['dominic_ratio']}")
+        
+        # Save results
+        os.makedirs('results', exist_ok=True)
+        results_file = 'results/starting_fen_results_from_db.json'
+        analyzer.export_results(results_file)
+        self.log(f"\nResults saved to {results_file}")
+
+    def run_system_test(self):
+        self.log("="*70)
+        self.log("COMPREHENSIVE SYSTEM TEST")
+        self.log("="*70)
+        
+        # Test 1: Tree Structure
+        self.log("\n[TEST 1] Tree Structure Validation")
+        self.log("-"*70)
+        
+        storage = ChessTreeStorage('chess_tree.db')
+        tree, progress = storage.load_tree()
+        
+        self.log(f"Total positions: {len(tree):,}")
+        
+        # Check depth distribution
+        depths = {}
+        for fen, data in tree.items():
+            d = data['depth']
+            depths[d] = depths.get(d, 0) + 1
+        
+        self.log("\nPositions per depth:")
+        for d in sorted(depths.keys()):
+            self.log(f"  Depth {d}: {depths[d]:,}")
+        
+        if depths:
+            expected_depths = set(range(0, max(depths.keys()) + 1))
+            actual_depths = set(depths.keys())
+            missing = expected_depths - actual_depths
+        
+            if missing:
+                self.log(f"\n❌ FAIL: Missing depths {sorted(missing)}")
+                self.log("   → BFS not storing intermediate positions")
+            else:
+                self.log(f"\n✓ PASS: All depths 0-{max(depths.keys())} present")
+        else:
+            self.log("\n❌ FAIL: Tree is empty")
+        
+        # Test 2: Checkmate Validation
+        self.log("\n[TEST 2] Checkmate Position Validation")
+        self.log("-"*70)
+        
+        checkmates = [fen for fen, data in tree.items() if data['is_checkmate']]
+        self.log(f"Checkmates found: {len(checkmates)}")
+        
+        if checkmates:
+            test_fen = checkmates[0]
+            test_board = chess.Board(test_fen)
+            
+            if test_board.is_checkmate():
+                self.log(f"✓ PASS: Sample checkmate verified")
+            else:
+                self.log(f"❌ FAIL: Position marked as checkmate isn't actually checkmate")
+                self.log(f"  FEN: {test_fen}")
+        
+        # Test 3: Parent-Child Relationships
+        self.log("\n[TEST 3] Parent-Child Relationship Validation")
+        self.log("-"*70)
+        
+        depth3_positions = [fen for fen, data in tree.items() if data['depth'] == 3]
+        if depth3_positions:
+            test_fen = depth3_positions[0]
+            test_data = tree[test_fen]
+            
+            self.log(f"Testing position at depth 3:")
+            self.log(f"  FEN: {test_fen[:50]}...")
+            self.log(f"  Move history length: {len(test_data['moves'])}")
+            
+            if len(test_data['moves']) >= 1:
+                board = chess.Board()
+                for move in test_data['moves'][:-1]:
+                    board.push(move)
+                
+                parent_fen = board.fen()
+                
+                if parent_fen in tree:
+                    self.log(f"✓ PASS: Parent position exists in tree")
+                    self.log(f"  Parent depth: {tree[parent_fen]['depth']}")
+                else:
+                    self.log(f"❌ FAIL: Parent position NOT in tree")
+                    self.log(f"  → Parent map will be empty")
+        
+        # Test 4: Decrement Algorithm
+        self.log("\n[TEST 4] Decrement Algorithm Test")
+        self.log("-"*70)
+        
+        analyzer = RetrogradeAnalyzer(tree)
+        
+        self.log("Running analysis...")
+        results = analyzer.analyze()
+        
+        self.log(f"Checkmates: {len(results['checkmates'])}")
+        self.log(f"Dead ends: {len(results['dead_ends'])}")
+        
+        initial_total = sum(analyzer.initial_move_counts.values())
+        final_total = sum(analyzer.move_counts.values())
+        
+        self.log(f"\nTotal initial move counts: {initial_total:,}")
+        self.log(f"Total final move counts: {final_total:,}")
+        self.log(f"Difference: {initial_total - final_total:,}")
+        
+        if final_total < initial_total:
+            self.log(f"✓ PASS: Decrement algorithm modified move counts")
+        else:
+            self.log(f"❌ FAIL: Move counts unchanged")
+            self.log(f"  → Decrement didn't propagate")
+        
+        # Test 5: Ratio Calculation
+        self.log("\n[TEST 5] Ratio Calculation Validation")
+        self.log("-"*70)
+        
+        for depth_str, data in sorted(results['refined_ratio'].items()):
+            depth = int(depth_str)
+            self.log(f"Depth {depth}: Ratio = {data['ratio']}")
+        
+        self.log("\n✓ Ratio calculation complete")
+        
+        # Test 6: Parent Map Size
+        self.log("\n[TEST 6] Parent Map Validation")
+        self.log("-"*70)
+        
+        if hasattr(analyzer, 'parent_map'):
+            self.log(f"Parent map size: {len(analyzer.parent_map):,} child positions")
+            
+            if len(analyzer.parent_map) > 0:
+                sample_child = list(analyzer.parent_map.keys())[0]
+                sample_parents = analyzer.parent_map[sample_child]
+                self.log(f"Sample: {len(sample_parents)} parents found for one child")
+                self.log(f"✓ PASS: Parent map contains data")
+            else:
+                self.log(f"❌ FAIL: Parent map is empty")
+        else:
+            self.log(f"❌ FAIL: Parent map not created")
+        
+        self.log("\n" + "="*70)
+        self.log("TEST SUITE COMPLETE")
+        self.log("="*70)
+        
+        storage.close()
+
+
 class ChessApp:
     def __init__(self, root):
         self.root = root
@@ -129,6 +361,11 @@ class ChessApp:
         self.tab_results = ttk.Frame(self.notebook)
         self.notebook.add(self.tab_results, text='Results')
         self.setup_results_tab()
+
+        # --- Tools Tab ---
+        self.tab_tools = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab_tools, text='Tools')
+        self.setup_tools_tab()
 
     def setup_analysis_tab(self):
         # 1. System Info
@@ -177,6 +414,11 @@ class ChessApp:
         self.var_resume = tk.BooleanVar(value=True)
         ttk.Checkbutton(config_frame, text="Resume from saved progress (if available)", 
                        variable=self.var_resume).pack(anchor='w', pady=5)
+
+        # 4 Conditions Option
+        self.var_conditions = tk.BooleanVar(value=False)
+        ttk.Checkbutton(config_frame, text="Use Dominic's 4 Conditions (Filter Moves)", 
+                       variable=self.var_conditions).pack(anchor='w', pady=5)
         
         # 3. Actions
         action_frame = ttk.Frame(self.tab_analysis)
@@ -213,6 +455,30 @@ class ChessApp:
         
         # Export
         ttk.Button(self.tab_results, text="Export Results to JSON", command=self.export_results).pack(pady=10)
+
+    def setup_tools_tab(self):
+        tools_frame = ttk.LabelFrame(self.tab_tools, text="Auxiliary Tools", padding=10)
+        tools_frame.pack(fill='x', padx=10, pady=10)
+        
+        ttk.Button(tools_frame, text="Run System Tests", 
+                  command=lambda: self.run_tool("system_test")).pack(fill='x', pady=5)
+        
+        ttk.Button(tools_frame, text="Check Database Progress", 
+                  command=lambda: self.run_tool("check_progress")).pack(fill='x', pady=5)
+        
+        ttk.Button(tools_frame, text="Analyze from Database (No BFS)", 
+                  command=lambda: self.run_tool("analyze_db")).pack(fill='x', pady=5)
+        
+        ttk.Label(self.tab_tools, text="Output will appear in the 'Analysis' tab log.", 
+                 foreground="gray").pack(pady=10)
+
+    def run_tool(self, task_type):
+        self.notebook.select(self.tab_analysis)
+        self.txt_log.delete(1.0, 'end')
+        self.log(f"Starting tool: {task_type}...")
+        
+        worker = ToolsWorker(task_type, self.msg_queue)
+        worker.start()
 
     def toggle_fen_input(self):
         if self.fen_var.get() == "custom":
@@ -276,7 +542,7 @@ class ChessApp:
                     return
 
             # Start Thread
-            self.worker = AnalysisWorker(fen, depth, resume, self.msg_queue, self.progress_queue, self.result_queue)
+            self.worker = AnalysisWorker(fen, depth, resume, self.msg_queue, self.progress_queue, self.result_queue, use_conditions=self.var_conditions.get())
             self.worker.start()
             
         except Exception as e:
