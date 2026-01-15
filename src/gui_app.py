@@ -25,7 +25,7 @@ from persistent_storage import ChessTreeStorage
 
 class AnalysisWorker(threading.Thread):
     """Worker thread for running analysis without freezing UI"""
-    def __init__(self, starting_fen, target_depth, resume, msg_queue, progress_queue, result_queue, use_conditions=False):
+    def __init__(self, starting_fen, target_depth, resume, msg_queue, progress_queue, result_queue, use_conditions=False, limit_promotions=True):
         super().__init__()
         self.starting_fen = starting_fen
         self.target_depth = target_depth
@@ -34,6 +34,7 @@ class AnalysisWorker(threading.Thread):
         self.progress_queue = progress_queue
         self.result_queue = result_queue
         self.use_conditions = use_conditions
+        self.limit_promotions = limit_promotions
         self.is_running = True
         self.daemon = True  # Thread dies if main app closes
 
@@ -65,7 +66,7 @@ class AnalysisWorker(threading.Thread):
             # so we'll simulate progress updates or just wait.
             self.progress_queue.put(10) # Started
             
-            tree = bfs.generate_move_tree(max_depth=self.target_depth, resume=self.resume, save_interval=1, use_conditions=self.use_conditions)
+            tree = bfs.generate_move_tree(max_depth=self.target_depth, resume=self.resume, save_interval=1, use_conditions=self.use_conditions, limit_promotions=self.limit_promotions)
             
             if not self.is_running:
                 return
@@ -419,6 +420,11 @@ class ChessApp:
         self.var_conditions = tk.BooleanVar(value=False)
         ttk.Checkbutton(config_frame, text="Use Dominic's 4 Conditions (Filter Moves)", 
                        variable=self.var_conditions).pack(anchor='w', pady=5)
+
+        # Promotion Limit Option
+        self.var_promotions = tk.BooleanVar(value=True)
+        ttk.Checkbutton(config_frame, text="Limit Promotions (Queen + Knight only)", 
+                       variable=self.var_promotions).pack(anchor='w', pady=5)
         
         # 3. Actions
         action_frame = ttk.Frame(self.tab_analysis)
@@ -542,7 +548,7 @@ class ChessApp:
                     return
 
             # Start Thread
-            self.worker = AnalysisWorker(fen, depth, resume, self.msg_queue, self.progress_queue, self.result_queue, use_conditions=self.var_conditions.get())
+            self.worker = AnalysisWorker(fen, depth, resume, self.msg_queue, self.progress_queue, self.result_queue, use_conditions=self.var_conditions.get(), limit_promotions=self.var_promotions.get())
             self.worker.start()
             
         except Exception as e:

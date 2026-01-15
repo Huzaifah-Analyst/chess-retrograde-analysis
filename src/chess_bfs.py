@@ -24,7 +24,7 @@ class ChessBFS:
         self.starting_fen = starting_fen
         self.positions_analyzed = 0
         
-    def generate_move_tree(self, max_depth, resume=True, save_interval=1, db_path='chess_tree.db', use_conditions=False):
+    def generate_move_tree(self, max_depth, resume=True, save_interval=1, db_path='chess_tree.db', use_conditions=False, limit_promotions=True, save_interval_nodes=500000):
         """
         Generate move tree with persistent storage
         
@@ -34,6 +34,8 @@ class ChessBFS:
             save_interval: Save after every N depths
             db_path: Path to SQLite database
             use_conditions: Whether to use Dominic's 4 conditions for filtering
+            limit_promotions: If True, only consider Queen and Knight promotions
+            save_interval_nodes: Save after every N moves analyzed
             
         Returns:
             Dictionary of positions with their data
@@ -43,6 +45,9 @@ class ChessBFS:
         if use_conditions:
             print("  [!] Using Dominic's 4 Conditions for filtering")
             detector = CheckmateDetector()
+            
+        if limit_promotions:
+            print("  [!] Limiting promotions to Queen and Knight only")
         
         start_time = time.time()
         storage = ChessTreeStorage(db_path)
@@ -101,7 +106,7 @@ class ChessBFS:
             for board, move_history in current_level:
                 for move in board.legal_moves:
                     # Skip bishop/rook promotions (Dominic's optimization)
-                    if move.promotion and move.promotion in [chess.BISHOP, chess.ROOK]:
+                    if limit_promotions and move.promotion and move.promotion in [chess.BISHOP, chess.ROOK]:
                         continue
                     
                     # Dominic's 4 Conditions Filtering
@@ -133,10 +138,14 @@ class ChessBFS:
                         if not new_board.is_game_over():
                             next_level.append((new_board, new_history))
                     
-                    # Progress indicator
+                    # Progress indicator & Granular Saving
                     if self.positions_analyzed % 100000 == 0:
                         elapsed = time.time() - depth_start_time
                         print(f"    {self.positions_analyzed:,} moves analyzed, {len(tree):,} unique positions ({elapsed:.1f}s)...")
+                        
+                    if self.positions_analyzed % save_interval_nodes == 0:
+                        print(f"    [Auto-Save] Saving progress at {self.positions_analyzed:,} moves...")
+                        storage.save_tree(tree, self.starting_fen, current_depth, max_depth, self.positions_analyzed)
             
             # Move to next level
             current_level = next_level
