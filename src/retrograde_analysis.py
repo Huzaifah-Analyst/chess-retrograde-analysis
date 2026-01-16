@@ -56,8 +56,8 @@ class RetrogradeAnalyzer:
         
         # Step 1: Find checkmates
         print("\nStep 1: Finding checkmate positions...")
-        checkmates = self.find_checkmates()
-        print(f"[OK] Found {len(checkmates)} checkmate positions")
+        self.checkmates = self.find_checkmates()
+        print(f"[OK] Found {len(self.checkmates)} checkmate positions")
         
         # Step 2: Initialize move counts
         print("\nStep 2: Initializing move counts...")
@@ -74,7 +74,7 @@ class RetrogradeAnalyzer:
         
         # Step 4: Run decrement algorithm
         print("\nStep 4: Running decrement propagation...")
-        self.decrement_from_checkmates(checkmates)
+        self.decrement_from_checkmates(self.checkmates)
         print(f"[OK] Found {len(self.dead_ends)} dead-end positions")
         
         # Step 5: Collect final statistics (AFTER decrement)
@@ -92,7 +92,7 @@ class RetrogradeAnalyzer:
         print("="*60)
         
         return {
-            'checkmates': checkmates,
+            'checkmates': self.checkmates,
             'dead_ends': self.dead_ends,
             'move_counts': self.move_counts,
             'initial_move_counts': self.initial_move_counts,
@@ -190,54 +190,34 @@ class RetrogradeAnalyzer:
     
     def build_parent_map(self):
         """
-        Build a reverse lookup map (child -> parents) for O(1) access
-        
-        ULTRA-OPTIMIZED: Uses move history tuples to find parents.
-        1. Map tuple(moves) -> fen for all positions
-        2. For each child, look up parent using tuple(child_moves[:-1])
-        3. No chess board operations required! Extremely fast.
+        Build parent map efficiently in single pass
+        O(N) instead of O(N²)
         """
-        self.parent_map = {}
+        print("Building parent map (optimized)...")
         
-        # Step 1: Build moves -> fen map
-        print("  Building moves -> fen map...")
-        moves_to_fen = {}
+        # Initialize map with empty lists for each checkmate
+        self.parent_map = {fen: [] for fen in self.checkmates}
+        
+        # Single pass through tree
+        positions_checked = 0
         for fen, data in self.tree.items():
-            # Convert list of moves to tuple for hashing
-            # We use the string representation of moves to be safe and consistent
-            move_tuple = tuple(m.uci() for m in data['moves'])
-            moves_to_fen[move_tuple] = fen
+            positions_checked += 1
             
-        print(f"  Mapped {len(moves_to_fen)} move sequences to FENs")
-        
-        # Step 2: Build parent map
-        count = 0
-        total = len(self.tree)
-        print(f"  Mapping {total} parent-child relationships...")
-        
-        for child_fen, data in self.tree.items():
-            # Skip root (no parent)
-            if data['depth'] == 0:
-                continue
-                
-            # Get parent moves tuple
-            child_moves = [m.uci() for m in data['moves']]
-            if child_moves:
-                parent_moves = tuple(child_moves[:-1])
-                
-                # Look up parent FEN
-                if parent_moves in moves_to_fen:
-                    parent_fen = moves_to_fen[parent_moves]
-                    
-                    if child_fen not in self.parent_map:
-                        self.parent_map[child_fen] = []
-                    self.parent_map[child_fen].append(parent_fen)
+            # Progress indicator every 100K positions
+            if positions_checked % 100000 == 0:
+                print(f"  Processed {positions_checked:,} positions...")
             
-            count += 1
-            if count % 500000 == 0:
-                print(f"    Mapped {count:,} positions...")
-                
-        print(f"  [OK] Parent map built with {len(self.parent_map)} child positions")
+            # Check each child of this position
+            for child_fen in data.get('children', []):
+                # If child is a checkmate, this position is its parent
+                if child_fen in self.parent_map:
+                    self.parent_map[child_fen].append(fen)
+        
+        # Count total parents found
+        total_parents = sum(len(parents) for parents in self.parent_map.values())
+        print(f"✓ Parent map built: {total_parents:,} parent relationships")
+        
+        return self.parent_map
 
     def find_parent_positions(self, position_fen):
         """

@@ -24,7 +24,7 @@ class ChessBFS:
         self.starting_fen = starting_fen
         self.positions_analyzed = 0
         
-    def generate_move_tree(self, max_depth, resume=True, save_interval=1, db_path='chess_tree.db', use_conditions=False, limit_promotions=True, save_interval_nodes=500000):
+    def generate_move_tree(self, max_depth, resume=True, save_interval=1, db_path='chess_tree.db', use_checkmate_filter=False, limit_promotions=True, save_interval_nodes=500000):
         """
         Generate move tree with persistent storage
         
@@ -33,7 +33,7 @@ class ChessBFS:
             resume: Whether to resume from saved progress
             save_interval: Save after every N depths
             db_path: Path to SQLite database
-            use_conditions: Whether to use Dominic's 4 conditions for filtering
+            use_checkmate_filter: Only generate moves matching conditions
             limit_promotions: If True, only consider Queen and Knight promotions
             save_interval_nodes: Save after every N moves analyzed
             
@@ -42,9 +42,12 @@ class ChessBFS:
         """
         print(f"Generating move tree to depth {max_depth}...")
         
-        if use_conditions:
-            print("  [!] Using Dominic's 4 Conditions for filtering")
+        if use_checkmate_filter:
             detector = CheckmateDetector()
+            print("🎯 Checkmate filter ENABLED")
+        else:
+            detector = None
+            print("⚠️  Checkmate filter DISABLED (generating all moves)")
             
         if limit_promotions:
             print("  [!] Limiting promotions to Queen and Knight only")
@@ -109,10 +112,10 @@ class ChessBFS:
                     if limit_promotions and move.promotion and move.promotion in [chess.BISHOP, chess.ROOK]:
                         continue
                     
-                    # Dominic's 4 Conditions Filtering
-                    if use_conditions:
+                    # Apply checkmate filter if enabled
+                    if detector is not None:
                         if not detector.matches_conditions(board, move):
-                            continue
+                            continue  # Skip this move
                     
                     self.positions_analyzed += 1
                     
@@ -179,6 +182,9 @@ class ChessBFS:
         print(f"  Unique positions stored: {len(tree):,}")
         print(f"  Total time: {total_time:.1f}s")
         print(f"{'='*60}")
+        
+        if detector is not None:
+            detector.print_stats()
         
         return tree
     
