@@ -60,13 +60,13 @@ class AnalysisWorker(threading.Thread):
             
             # 1. Generate Tree
             self.log("\n--- Phase 1: Generating Move Tree (BFS) ---")
-            bfs = ChessBFS(self.starting_fen)
+            bfs = ChessBFS(self.starting_fen, logger=self.log)
             
             # We can't easily hook into the BFS progress without modifying it,
             # so we'll simulate progress updates or just wait.
             self.progress_queue.put(10) # Started
             
-            tree = bfs.generate_move_tree(max_depth=self.target_depth, resume=self.resume, save_interval=1, use_checkmate_filter=self.use_conditions, limit_promotions=self.limit_promotions)
+            tree = bfs.generate_move_tree(max_depth=self.target_depth, resume=self.resume, save_interval=1, use_checkmate_filter=self.use_conditions, limit_promotions=self.limit_promotions, logger=self.log)
             
             if not self.is_running:
                 return

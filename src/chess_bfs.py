@@ -14,17 +14,24 @@ from checkmate_detector import CheckmateDetector
 class ChessBFS:
     """Generates chess move tree using Breadth-First Search"""
     
-    def __init__(self, starting_fen):
+    def __init__(self, starting_fen, logger=None):
         """
         Initialize with a chess position
         
         Args:
             starting_fen: Chess position in FEN notation
+            logger: Optional callback for logging
         """
         self.starting_fen = starting_fen
         self.positions_analyzed = 0
+        self.logger = logger or print
         
-    def generate_move_tree(self, max_depth, resume=True, save_interval=1, db_path='chess_tree.db', use_checkmate_filter=False, limit_promotions=True, save_interval_nodes=500000):
+    def log(self, msg):
+        """Log message using configured logger"""
+        if self.logger:
+            self.logger(msg)
+        
+    def generate_move_tree(self, max_depth, resume=True, save_interval=1, db_path='chess_tree.db', use_checkmate_filter=False, limit_promotions=True, save_interval_nodes=500000, logger=None):
         """
         Generate move tree with persistent storage
         
@@ -36,21 +43,25 @@ class ChessBFS:
             use_checkmate_filter: Only generate moves matching conditions
             limit_promotions: If True, only consider Queen and Knight promotions
             save_interval_nodes: Save after every N moves analyzed
+            logger: Optional callback for logging (overrides init logger)
             
         Returns:
             Dictionary of positions with their data
         """
-        print(f"Generating move tree to depth {max_depth}...")
+        if logger:
+            self.logger = logger
+            
+        self.log(f"Generating move tree to depth {max_depth}...")
         
         if use_checkmate_filter:
             detector = CheckmateDetector()
-            print("🎯 Checkmate filter ENABLED")
+            self.log("🎯 Checkmate filter ENABLED")
         else:
             detector = None
-            print("⚠️  Checkmate filter DISABLED (generating all moves)")
+            self.log("⚠️  Checkmate filter DISABLED (generating all moves)")
             
         if limit_promotions:
-            print("  [!] Limiting promotions to Queen and Knight only")
+            self.log("  [!] Limiting promotions to Queen and Knight only")
         
         start_time = time.time()
         storage = ChessTreeStorage(db_path)
@@ -64,17 +75,17 @@ class ChessBFS:
             if saved_tree and progress:
                 # Verify same starting position
                 if progress['starting_fen'] == self.starting_fen:
-                    print(f"Resuming from depth {progress['current_depth']}")
+                    self.log(f"Resuming from depth {progress['current_depth']}")
                     start_depth = progress['current_depth'] + 1
                     self.positions_analyzed = progress['positions_analyzed']
                     tree = saved_tree
                 else:
-                    print("Different starting position, starting fresh...")
+                    self.log("Different starting position, starting fresh...")
                     storage.clear()
         
         # If we're at max depth already, nothing to do
         if start_depth > max_depth:
-            print(f"Already at depth {start_depth - 1}, nothing to do")
+            self.log(f"Already at depth {start_depth - 1}, nothing to do")
             storage.close()
             return tree
         
@@ -92,7 +103,7 @@ class ChessBFS:
                 if data['depth'] == start_depth - 1:
                     if not data['is_checkmate'] and not data['is_stalemate']:
                         current_level.append((data['board'], data['moves']))
-            print(f"Resuming with {len(current_level)} positions at depth {start_depth - 1}")
+            self.log(f"Resuming with {len(current_level)} positions at depth {start_depth - 1}")
         
         # Process each depth level
         for current_depth in range(start_depth, max_depth + 1):
@@ -100,8 +111,8 @@ class ChessBFS:
             positions_at_start = len(tree)
             positions_analyzed_start = self.positions_analyzed
             
-            print(f"\nGenerating depth {current_depth}...")
-            print(f"  Processing {len(current_level)} parent positions...")
+            self.log(f"\nGenerating depth {current_depth}...")
+            self.log(f"  Processing {len(current_level)} parent positions...")
             
             next_level = []
             
@@ -144,10 +155,10 @@ class ChessBFS:
                     # Progress indicator & Granular Saving
                     if self.positions_analyzed % 100000 == 0:
                         elapsed = time.time() - depth_start_time
-                        print(f"    {self.positions_analyzed:,} moves analyzed, {len(tree):,} unique positions ({elapsed:.1f}s)...")
+                        self.log(f"    {self.positions_analyzed:,} moves analyzed, {len(tree):,} unique positions ({elapsed:.1f}s)...")
                         
                     if self.positions_analyzed % save_interval_nodes == 0:
-                        print(f"    [Auto-Save] Saving progress at {self.positions_analyzed:,} moves...")
+                        self.log(f"    [Auto-Save] Saving progress at {self.positions_analyzed:,} moves...")
                         storage.save_tree(tree, self.starting_fen, current_depth, max_depth, self.positions_analyzed)
             
             # Move to next level
@@ -159,8 +170,8 @@ class ChessBFS:
             new_positions = len(tree) - positions_at_start
             moves_analyzed = self.positions_analyzed - positions_analyzed_start
             
-            print(f"[OK] Depth {current_depth}: +{new_positions:,} positions ({moves_analyzed:,} moves) in {depth_time:.1f}s")
-            print(f"     Total: {len(tree):,} positions, {total_time:.1f}s elapsed")
+            self.log(f"[OK] Depth {current_depth}: +{new_positions:,} positions ({moves_analyzed:,} moves) in {depth_time:.1f}s")
+            self.log(f"     Total: {len(tree):,} positions, {total_time:.1f}s elapsed")
             
             # Save after each depth
             if current_depth % save_interval == 0:
@@ -168,7 +179,7 @@ class ChessBFS:
             
             # Stop if no more positions to explore
             if not current_level:
-                print(f"\nNo more positions to explore at depth {current_depth}")
+                self.log(f"\nNo more positions to explore at depth {current_depth}")
                 break
         
         # Final save
@@ -176,12 +187,12 @@ class ChessBFS:
         storage.close()
         
         total_time = time.time() - start_time
-        print(f"\n{'='*60}")
-        print(f"COMPLETE!")
-        print(f"  Total moves analyzed: {self.positions_analyzed:,}")
-        print(f"  Unique positions stored: {len(tree):,}")
-        print(f"  Total time: {total_time:.1f}s")
-        print(f"{'='*60}")
+        self.log(f"\n{'='*60}")
+        self.log(f"COMPLETE!")
+        self.log(f"  Total moves analyzed: {self.positions_analyzed:,}")
+        self.log(f"  Unique positions stored: {len(tree):,}")
+        self.log(f"  Total time: {total_time:.1f}s")
+        self.log(f"{'='*60}")
         
         if detector is not None:
             detector.print_stats()
@@ -198,7 +209,7 @@ class ChessBFS:
         Returns:
             Dictionary of positions with their data
         """
-        print(f"Generating move tree to depth {max_depth}...")
+        self.log(f"Generating move tree to depth {max_depth}...")
         
         start_time = time.time()
         
@@ -252,15 +263,15 @@ class ChessBFS:
                 # Progress indicator
                 if self.positions_analyzed % 100000 == 0:
                     elapsed = time.time() - start_time
-                    print(f"  {self.positions_analyzed:,} moves analyzed, {len(tree):,} positions ({elapsed:.1f}s)...")
+                    self.log(f"  {self.positions_analyzed:,} moves analyzed, {len(tree):,} positions ({elapsed:.1f}s)...")
         
         total_time = time.time() - start_time
-        print(f"\n{'='*60}")
-        print(f"COMPLETE!")
-        print(f"  Total moves analyzed: {self.positions_analyzed:,}")
-        print(f"  Unique positions stored: {len(tree):,}")
-        print(f"  Total time: {total_time:.1f}s")
-        print(f"{'='*60}")
+        self.log(f"\n{'='*60}")
+        self.log(f"COMPLETE!")
+        self.log(f"  Total moves analyzed: {self.positions_analyzed:,}")
+        self.log(f"  Unique positions stored: {len(tree):,}")
+        self.log(f"  Total time: {total_time:.1f}s")
+        self.log(f"{'='*60}")
         
         return tree
     
