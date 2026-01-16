@@ -66,7 +66,7 @@ class AnalysisWorker(threading.Thread):
             # so we'll simulate progress updates or just wait.
             self.progress_queue.put(10) # Started
             
-            tree = bfs.generate_move_tree(max_depth=self.target_depth, resume=self.resume, save_interval=1, use_conditions=self.use_conditions, limit_promotions=self.limit_promotions)
+            tree = bfs.generate_move_tree(max_depth=self.target_depth, resume=self.resume, save_interval=1, use_checkmate_filter=self.use_conditions, limit_promotions=self.limit_promotions)
             
             if not self.is_running:
                 return
@@ -418,7 +418,7 @@ class ChessApp:
 
         # 4 Conditions Option
         self.var_conditions = tk.BooleanVar(value=False)
-        ttk.Checkbutton(config_frame, text="Use Dominic's 4 Conditions (Filter Moves)", 
+        ttk.Checkbutton(config_frame, text="Use Dominic's 2 Conditions (Filter Moves)", 
                        variable=self.var_conditions).pack(anchor='w', pady=5)
 
         # Promotion Limit Option
