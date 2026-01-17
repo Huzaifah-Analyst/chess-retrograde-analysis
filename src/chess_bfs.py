@@ -64,6 +64,8 @@ class ChessBFS:
             self.log("  [!] Limiting promotions to Queen and Knight only")
         
         start_time = time.time()
+        last_save_time = time.time()
+        save_interval_seconds = 2 * 60 * 60  # 2 hours
         storage = ChessTreeStorage(db_path)
         
         # Try to resume
@@ -157,9 +159,11 @@ class ChessBFS:
                         elapsed = time.time() - depth_start_time
                         self.log(f"    {self.positions_analyzed:,} moves analyzed, {len(tree):,} unique positions ({elapsed:.1f}s)...")
                         
-                    if self.positions_analyzed % save_interval_nodes == 0:
-                        self.log(f"    [Auto-Save] Saving progress at {self.positions_analyzed:,} moves...")
+                    current_time = time.time()
+                    if current_time - last_save_time >= save_interval_seconds:
+                        self.log(f"💾 Checkpoint: {len(tree):,} positions at {time.strftime('%H:%M:%S')}")
                         storage.save_tree(tree, self.starting_fen, current_depth, max_depth, self.positions_analyzed)
+                        last_save_time = current_time
             
             # Move to next level
             current_level = next_level
